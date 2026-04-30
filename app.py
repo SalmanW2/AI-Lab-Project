@@ -45,50 +45,46 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ---------- Custom CSS (Modern + Responsive) ----------
+# ---------- Custom CSS for Better Mobile + Desktop ----------
 st.markdown("""
     <style>
-        /* Sidebar fixed width */
+        /* Fixed Sidebar Width */
         section[data-testid="stSidebar"] {
             min-width: 350px !important;
             max-width: 350px !important;
         }
-        
-        /* Bigger and nicer Upload area */
+
+        /* Bigger Upload Area */
         .stFileUploader > div {
-            border: 2px dashed #555 !important;
+            border: 2px dashed #666 !important;
             border-radius: 12px !important;
-            padding: 2rem !important;
+            padding: 2.5rem !important;
             background-color: #1e1e1e !important;
         }
-        
-        /* Make images look better */
+
+        /* Image Styling */
         .stImage img {
             border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
         }
-        
-        /* History section */
-        .stExpander {
-            border-radius: 10px;
+
+        /* Responsive Columns for Detection */
+        @media (max-width: 768px) {
+            .stColumns > div {
+                width: 100% !important;
+            }
         }
-        
-        /* Button styling */
-        .stButton button {
-            border-radius: 8px;
-        }
-        
-        /* Dark theme improvements */
-        .block-container {
-            padding-top: 1.5rem;
-            padding-bottom: 2rem;
+
+        /* History Images */
+        .stImage {
+            margin-bottom: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------- Title ----------
 st.title("🔍 Object Detection")
-st.markdown("Upload images • Select model • Get instant detections")
+st.markdown("Upload images, select model & detect objects instantly")
 
 # ---------- Sidebar ----------
 with st.sidebar:
@@ -114,7 +110,7 @@ with st.sidebar:
         st.metric("🎯 Accuracy", selected["accuracy"])
 
     conf_thresh = st.slider("Confidence Threshold", 0.0, 1.0, 0.25, 0.01)
-    st.caption("Higher = fewer but more accurate detections")
+    st.caption("Higher = fewer but more confident detections")
 
     if os.path.exists(BIN_DIR):
         total = len([f for f in os.listdir(BIN_DIR) if f.endswith(('.jpg','.jpeg','.png','.webp'))])
@@ -127,18 +123,18 @@ with st.sidebar:
                     os.remove(os.path.join(BIN_DIR, f))
                 except:
                     pass
-        st.success("✅ History cleared successfully!")
+        st.success("✅ History cleared!")
         st.rerun()
 
     st.markdown("---")
     st.caption("🔍 YOLOv8 • 80 Classes")
 
-# ---------- Main Area ----------
+# ---------- Main Area - Upload ----------
 uploaded_files = st.file_uploader(
     "Drop your image(s) here or click to browse",
     type=["jpg", "jpeg", "png", "webp"],
     accept_multiple_files=True,
-    help="Supports JPG, PNG, WEBP • Max 200MB per file"
+    help="JPG, PNG, WEBP supported • Multiple files allowed"
 )
 
 if uploaded_files:
@@ -149,31 +145,33 @@ if uploaded_files:
         with st.expander(f"📷 {uploaded_file.name}", expanded=True):
             image = Image.open(uploaded_file).convert("RGB")
             
-            # Responsive columns (stack on mobile)
-            col1, col2 = st.columns(2)
+            # Mobile friendly columns (stack on small screens)
+            cols = st.columns(2)
             
-            with col1:
+            # Original Image
+            with cols[0]:
                 st.image(image, caption="📌 Original Image", use_container_width=True)
             
-            with col2:
-                with st.spinner("🔄 Running YOLOv8 detection..."):
+            # Detected Image
+            with cols[1]:
+                with st.spinner("🔄 Detecting objects with YOLOv8..."):
                     results = model(np.array(image), conf=conf_thresh)
                     annotated = results[0].plot()
                     annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
                 
                 st.image(annotated_rgb, caption="✅ Detected Objects", use_container_width=True)
 
-                # Download
+                # Download Button
                 save_path, filename = save_image(annotated_rgb, uploaded_file.name)
                 with open(save_path, "rb") as f:
                     st.download_button(
-                        label="📥 Download Detected Image",
-                        data=f,
+                        "📥 Download Detected Image",
+                        f,
                         file_name=filename,
                         use_container_width=True
                     )
 
-            # Detection Table
+            # Detection Results Table
             boxes = results[0].boxes
             if len(boxes) > 0:
                 data = []
@@ -183,7 +181,7 @@ if uploaded_files:
                     data.append({"Object": cls_name, "Confidence": f"{conf:.2%}"})
                 st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
             else:
-                st.info("No objects detected above the confidence threshold.")
+                st.info("No objects detected above confidence threshold.")
 
 # ---------- History Section ----------
 st.markdown("---")
@@ -192,11 +190,14 @@ st.subheader("📜 Recent Detections")
 history = get_history()
 
 if history:
-    cols = st.columns(4)   # 4 columns on desktop, automatically stacks on mobile
+    # Responsive columns for history
+    num_cols = 4 if st.session_state.get("is_desktop", True) else 2
+    cols = st.columns(num_cols)
+    
     for i, fname in enumerate(history):
-        with cols[i % 4]:
+        with cols[i % num_cols]:
             img_path = os.path.join(BIN_DIR, fname)
             st.image(img_path, use_container_width=True)
-            st.caption(fname[:25] + "..." if len(fname) > 25 else fname)
+            st.caption(fname[:22] + "..." if len(fname) > 22 else fname)
 else:
-    st.info("No detection history yet. Upload some images to see them here.")
+    st.info("No history yet. Upload images to see recent detections here.")
