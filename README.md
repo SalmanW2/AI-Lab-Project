@@ -13,7 +13,7 @@ A Streamlit-based web application for object detection using YOLOv8.
 
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/AI-Lab-Project.git
+git clone https://github.com/Bokuto004/AI-Lab-Project.git
 cd AI-Lab-Project
 
 # Install dependencies
