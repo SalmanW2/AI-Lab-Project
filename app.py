@@ -11,7 +11,7 @@ import pandas as pd
 BIN_DIR = "bin"
 os.makedirs(BIN_DIR, exist_ok=True)
 
-# Model mapping
+# Model mapping - Yeh sahi rahega
 MODELS = {
     "Nano (fastest)": "yolov8n.pt",
     "Small": "yolov8s.pt",
@@ -36,7 +36,7 @@ def get_history():
         return []
     files = [f for f in os.listdir(BIN_DIR) if f.endswith(('.jpg','.jpeg','.png','.webp'))]
     files.sort(key=lambda x: os.path.getmtime(os.path.join(BIN_DIR, x)), reverse=True)
-    return files[:12]  # Sirf 12 recent dikhao
+    return files[:12]
 
 # ---------- Page Config ----------
 st.set_page_config(page_title="Object Detection", page_icon="🔍", layout="wide")
@@ -53,8 +53,9 @@ with st.sidebar:
             }
         </style>
     """, unsafe_allow_html=True)
-    st.markdown("### ⚙️ Settings")
     
+    st.markdown("### ⚙️ Settings")
+   
     # Model options with descriptions
     model_options = {
         "Nano (fastest)": {
@@ -88,25 +89,24 @@ with st.sidebar:
             "accuracy": "🎯 98%"
         }
     }
-    
+   
     model_choice = st.selectbox("Model", list(model_options.keys()), index=0)
     selected = model_options[model_choice]
+    
     st.caption(selected["desc"])
     col1, col2 = st.columns(2)
     with col1:
         st.metric("⚡ Speed", selected["speed"])
     with col2:
         st.metric("🎯 Accuracy", selected["accuracy"])
-    
-
+   
     conf_thresh = st.slider("Confidence Threshold", 0.0, 1.0, 0.25, 0.01)
     st.caption("Higher = fewer but more accurate detections")
-    
-
+   
     if os.path.exists(BIN_DIR):
         total_images = len([f for f in os.listdir(BIN_DIR) if f.endswith(('.jpg','.jpeg','.png','.webp'))])
         st.metric("📊 Total Detections", total_images)
-    
+   
     if st.button("🗑️ Clear All History", type="secondary", use_container_width=True):
         if os.path.exists(BIN_DIR):
             for f in os.listdir(BIN_DIR):
@@ -116,7 +116,7 @@ with st.sidebar:
                     pass
         st.success("✅ History cleared!")
         st.rerun()
-    
+   
     st.markdown("---")
     st.caption("🔍 YOLOv8 | 80 Classes")
 
@@ -128,29 +128,32 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
-    model = load_model(MODELS[model_choice.split(" (")[0]])  # Get base model name
-    
+    # ==================== FIXED LINE ====================
+    model_path = MODELS[model_choice]                    # ← Yeh sahi tarika hai
+    model = load_model(model_path)
+    # ===================================================
+
     for uploaded_file in uploaded_files:
         with st.expander(f"📷 {uploaded_file.name}", expanded=True):
             col1, col2 = st.columns(2)
-            
+           
             # Original image
             image = Image.open(uploaded_file)
             col1.image(image, caption="Original", use_container_width=True)
-            
+           
             # Detection
             with st.spinner("Detecting..."):
                 results = model(np.array(image), conf=conf_thresh)
                 annotated = results[0].plot()
                 annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-            
+           
             col2.image(annotated_rgb, caption="Detected", use_container_width=True)
-            
+           
             # Save and download
             save_path, filename = save_image(annotated_rgb, uploaded_file.name)
             with open(save_path, "rb") as f:
                 col2.download_button("📥 Download Result", f, file_name=filename, use_container_width=True)
-            
+           
             # Detection table
             boxes = results[0].boxes
             if len(boxes) > 0:
@@ -166,7 +169,6 @@ if uploaded_files:
 # ---------- History Section ----------
 st.markdown("---")
 st.markdown("### 📜 Recent Detections")
-
 history = get_history()
 if history:
     cols = st.columns(4)
